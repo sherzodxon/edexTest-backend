@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" 
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  surname   String
+  username  String    @unique
+  password  String
+  role      Role      @default(STUDENT)
+  gradeId   Int?      
+  grade     Grade?    @relation("StudentGrade", fields: [gradeId], references: [id])
+  teacherGrades Grade[] @relation("TeacherGrades")
+  tests     Test[]    @relation("TeacherTests")
+  userTests UserTest[]
+  answers   Answer[]
+  createdAt DateTime  @default(now())
+}
+
+model Grade {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  students  User[]   @relation("StudentGrade")
+  teachers  User[]   @relation("TeacherGrades")
+
+  tests     Test[]
+
+  createdAt DateTime @default(now())
+}
+
+model Test {
+  id        Int        @id @default(autoincrement())
+  title     String
+  subject   String
+
+  teacher   User       @relation("TeacherTests", fields: [teacherId], references: [id])
+  teacherId Int
+
+  grade     Grade      @relation(fields: [gradeId], references: [id])
+  gradeId   Int
+
+  questions Question[]
+  userTests UserTest[]
+
+  createdAt DateTime   @default(now())
+}
+
+model Question {
+  id        Int       @id @default(autoincrement())
+  text      String
+  img       String?
+
+  test      Test      @relation(fields: [testId], references: [id])
+  testId    Int
+
+  options   Option[]
+  answers   Answer[]
+
+  createdAt DateTime  @default(now())
+}
+
+model Option {
+  id         Int       @id @default(autoincrement())
+  text       String
+  isCorrect  Boolean   @default(false)
+
+  question   Question  @relation(fields: [questionId], references: [id])
+  questionId Int
+
+  answers    Answer[]
+
+  createdAt  DateTime  @default(now())
+}
+
+model Answer {
+  id         Int       @id @default(autoincrement())
+  student    User      @relation(fields: [studentId], references: [id])
+  studentId  Int
+
+  question   Question  @relation(fields: [questionId], references: [id])
+  questionId Int
+
+  option     Option    @relation(fields: [optionId], references: [id])
+  optionId   Int
+
+  createdAt  DateTime  @default(now())
+
+  @@unique([studentId, questionId], name: "studentId_questionId")
+}
+
+model UserTest {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+
+  test      Test     @relation(fields: [testId], references: [id])
+  testId    Int
+
+  finished  Boolean  @default(false)
+  score     Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, testId], name: "userId_testId")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
