@@ -7,15 +7,13 @@ export default function initSocket(server: any) {
   });
 
   io.on("connection", (socket) => {
-    console.log("🟢 Client connected", socket.id);
+    console.log("Client connected", socket.id);
 
-    // Teacher tizimga kirganda o‘z xonasiga qo‘shiladi
     socket.on("joinTeacherRoom", (teacherId: number) => {
       socket.join(`teacher_${teacherId}`);
-      console.log(`👨‍🏫 Teacher ${teacherId} roomiga qo‘shildi`);
+      console.log(`Teacher ${teacherId} roomiga qo‘shildi`);
     });
 
-    // Student testni tugatganda
     socket.on("testFinished", async ({ userId, testId }) => {
       try {
         const result = await prisma.userTest.findUnique({
@@ -33,17 +31,17 @@ export default function initSocket(server: any) {
           if (test?.teacherId) {
             io.to(`teacher_${test.teacherId}`).emit("resultUpdated", result);
             console.log(
-              `📊 Natija teacher_${test.teacherId} roomiga yuborildi`
+              `Natija teacher_${test.teacherId} roomiga yuborildi`
             );
           }
         }
       } catch (err) {
-        console.error("❌ testFinished socket error:", err);
+        console.error("testFinished socket error:", err);
       }
     });
 
     socket.on("disconnect", () => {
-      console.log("🔴 Client disconnected", socket.id);
+      console.log("Client disconnected", socket.id);
     });
   });
 

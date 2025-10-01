@@ -6,7 +6,6 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, "../uploads");
 
-    // agar papka bo‘lmasa → yaratib qo‘yamiz
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }

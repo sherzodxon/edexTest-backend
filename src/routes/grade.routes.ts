@@ -4,36 +4,31 @@ import { authenticate, authorize } from "../middlewares/auth";
 
 const router = Router();
 
-/**
- * 🟢 Admin → yangi grade yaratadi
- */
 router.post("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { name } = req.body;
 
     if (!name) {
-      return res.status(400).json({ message: "❌ Grade nomi kerak" });
+      return res.status(400).json({ message: "Sinf nomi kerak" });
     }
 
     const existing = await prisma.grade.findUnique({ where: { name } });
     if (existing) {
-      return res.status(400).json({ message: "❌ Bu grade allaqachon mavjud" });
+      return res.status(400).json({ message: "Bu sinf allaqachon mavjud" });
     }
 
     const grade = await prisma.grade.create({
       data: { name },
     });
 
-    res.json({ message: "✅ Grade yaratildi", grade });
+    res.json({ message: "Sinf yaratildi", grade });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Grade yaratishda xatolik" });
+    res.status(500).json({ message: "Sinf yaratishda xatolik" });
   }
 });
 
-/**
- * 🟢 Admin → barcha gradelarni ko‘rish
- */
+
 router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const grades = await prisma.grade.findMany({
@@ -47,13 +42,11 @@ router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
     res.json(grades);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Gradelarni olishda xatolik" });
+    res.status(500).json({ message: "Sinflarni olishda xatolik" });
   }
 });
 
-/**
- * 🟢 Admin → grade yangilash
- */
+
 router.put("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
@@ -64,32 +57,27 @@ router.put("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
       data: { name },
     });
 
-    res.json({ message: "✅ Grade yangilandi", grade });
+    res.json({ message: "Sinf  yangilandi", grade });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Grade yangilashda xatolik" });
+    res.status(500).json({ message: "Sinf yangilashda xatolik" });
   }
 });
 
-/**
- * 🟢 Admin → grade o‘chirish
- */
+
 router.delete("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
 
     await prisma.grade.delete({ where: { id: Number(id) } });
 
-    res.json({ message: "🗑️ Grade o‘chirildi" });
+    res.json({ message: "Sinf o'chirildi" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Grade o‘chirishda xatolik" });
+    res.status(500).json({ message: "Sinf o'chirishda xatolik" });
   }
 });
 
-/**
- * 🟢 Admin → gradega teacher biriktirish
- */
 router.post("/:id/add-teacher", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
@@ -97,7 +85,7 @@ router.post("/:id/add-teacher", authenticate, authorize(["ADMIN"]), async (req, 
 
     const teacher = await prisma.user.findUnique({ where: { id: Number(teacherId) } });
     if (!teacher || teacher.role !== "TEACHER") {
-      return res.status(400).json({ message: "❌ Bunday teacher mavjud emas" });
+      return res.status(400).json({ message: "Bunday o'qituvchi mavjud emas" });
     }
 
     const grade = await prisma.grade.update({
@@ -110,16 +98,14 @@ router.post("/:id/add-teacher", authenticate, authorize(["ADMIN"]), async (req, 
       include: { teachers: true },
     });
 
-    res.json({ message: "✅ Teacher gradega biriktirildi", grade });
+    res.json({ message: "O'qituvchi sinfga biriktirildi", grade });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Teacher qo‘shishda xatolik" });
+    res.status(500).json({ message: "O'qituvchi qo'shishda xatolik" });
   }
 });
 
-/**
- * 🟢 Admin → gradega teacher’ni olib tashlash
- */
+
 router.post("/:id/remove-teacher", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
@@ -135,10 +121,10 @@ router.post("/:id/remove-teacher", authenticate, authorize(["ADMIN"]), async (re
       include: { teachers: true },
     });
 
-    res.json({ message: "✅ Teacher grade’dan olib tashlandi", grade });
+    res.json({ message: "O'qituvchu sinf'dan olib tashlandi", grade });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Teacher olib tashlashda xatolik" });
+    res.status(500).json({ message: "O'qituvchi olib tashlashda xatolik" });
   }
 });
 

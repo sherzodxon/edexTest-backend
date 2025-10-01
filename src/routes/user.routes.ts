@@ -6,15 +6,12 @@ import { authenticate, authorize, AuthRequest } from "../middlewares/auth";
 
 const router = Router();
 
-/**
- * 🟢 Foydalanuvchi qo‘shish (faqat ADMIN)
- */
 router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, res) => {
   try {
     const { name, surname, username, password, role, gradeId, teacherGradeIds } = req.body;
 
     if (!name || !surname || !username || !password || !role) {
-      return res.status(400).json({ message: "❌ name, surname, username, password va role kiritilishi kerak" });
+      return res.status(400).json({ message: "ism, familya, username, parol va role kiritilishi kerak" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -27,12 +24,10 @@ router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, re
         password: hashedPassword,
         role,
 
-        // Student bo‘lsa bitta grade
         ...(role === "STUDENT" && gradeId
           ? { grade: { connect: { id: gradeId } } }
           : {}),
 
-        // Teacher bo‘lsa bir nechta grade
         ...(role === "TEACHER" && Array.isArray(teacherGradeIds) && teacherGradeIds.length > 0
           ? { teacherGrades: { connect: teacherGradeIds.map((id: number) => ({ id })) } }
           : {}),
@@ -47,9 +42,6 @@ router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, re
   }
 });
 
-/**
- * 📋 Barcha foydalanuvchilarni olish (faqat ADMIN)
- */
 router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -62,9 +54,7 @@ router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   }
 });
 
-/**
- * ✏️ Foydalanuvchini yangilash (faqat ADMIN)
- */
+
 router.put("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
@@ -87,21 +77,19 @@ router.put("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
       include: { grade: true, teacherGrades: true },
     });
 
-    res.json({ message: "✅ Foydalanuvchi yangilandi", user });
+    res.json({ message: "Foydalanuvchi yangilandi", user });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server xatosi" });
   }
 });
 
-/**
- * ❌ Foydalanuvchini o‘chirish (faqat ADMIN)
- */
+
 router.delete("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
     await prisma.user.delete({ where: { id: Number(id) } });
-    res.json({ message: "✅ Foydalanuvchi o‘chirildi" });
+    res.json({ message: "Foydalanuvchi o'chirildi" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server xatosi" });

@@ -5,14 +5,11 @@ import { upload } from "../middlewares/upload";
 
 const router = Router();
 
-/**
- * 🟢 Bitta testga savol qo‘shish (img optional)
- */
 router.post(
   "/:testId",
   authenticate,
   authorize(["TEACHER"]),
-  upload.single("image"), // 🟢 faqat bitta savol uchun bitta rasm
+  upload.single("image"), 
   async (req: AuthRequest, res) => {
     try {
       const { text, options } = req.body;
@@ -35,7 +32,7 @@ router.post(
         include: { options: true },
       });
 
-      res.json({ message: "✅ Savol qo‘shildi", question });
+      res.json({ message: "Savol qo'shildi", question });
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: "Savol yaratishda xatolik" });
@@ -43,9 +40,7 @@ router.post(
   }
 );
 
-/**
- * 🟡 Savolni yangilash (img optional, yangisini yuklasa eski fayl o‘chirilmaydi)
- */
+
 router.put(
   "/:id",
   authenticate,
@@ -63,7 +58,7 @@ router.put(
           text,
           img: req.file ? `/uploads/questions/${req.file.filename}` : undefined,
           options: {
-            deleteMany: {}, // eski variantlarni o‘chiramiz
+            deleteMany: {}, 
             create: parsedOptions.map((o: any) => ({
               text: o.text,
               isCorrect: o.isCorrect,
@@ -73,7 +68,7 @@ router.put(
         include: { options: true },
       });
 
-      res.json({ message: "✏️ Savol yangilandi", question });
+      res.json({ message: "Savol yangilandi", question });
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: "Savolni yangilashda xatolik" });

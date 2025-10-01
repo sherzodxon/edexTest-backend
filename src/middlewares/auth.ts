@@ -8,7 +8,6 @@ export interface AuthRequest extends Request {
   user?: { id: number; role: string; gradeId?: number };
 }
 
-// 🔑 JWT tokenni tekshiradi
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: "No token provided" });
@@ -23,7 +22,6 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   }
 };
 
-// 🔑 Faqat muayyan rollarni ruxsat berish
 export const authorize = (roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {
@@ -33,12 +31,11 @@ export const authorize = (roles: string[]) => {
   };
 };
 
-// 🔑 Birinchi adminni qo‘shishga ruxsat beradi
 export const allowFirstAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
   if (req.body.role !== "ADMIN") return authorize(["ADMIN"])(req, res, next);
 
   const existingAdmin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
   if (existingAdmin) return authorize(["ADMIN"])(req, res, next);
 
-  next(); // birinchi admin bo‘lsa ruxsat beriladi
+  next();
 };
