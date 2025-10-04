@@ -11,7 +11,7 @@ import gradeRoutes from "./routes/grade.routes";
 import testRoutes from "./routes/test.routes";
 import answerRoutes from "./routes/answer.routes";
 import questionRoutes from "./routes/question.routes";
-
+import subjectRoutes from "./routes/subject.routes";
 
 const app = express();
 const server = http.createServer(app);
@@ -27,6 +27,7 @@ app.use("/api/grades", gradeRoutes);
 app.use("/api/tests", testRoutes);
 app.use("/api/answers", answerRoutes);
 app.use("/api/questions", questionRoutes);
+app.use("/api/subjects", subjectRoutes);
 
 io.on("connection", (socket) => {
   console.log("Client connected");

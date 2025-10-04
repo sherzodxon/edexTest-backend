@@ -14,40 +14,59 @@ model User {
   username  String    @unique
   password  String
   role      Role      @default(STUDENT)
+
   gradeId   Int?      
   grade     Grade?    @relation("StudentGrade", fields: [gradeId], references: [id])
-  teacherGrades Grade[] @relation("TeacherGrades")
+
+  teacherGrades   Grade[]    @relation("TeacherGrades")
+  teacherSubjects Subject[]  @relation("TeacherSubjects")
+
   tests     Test[]    @relation("TeacherTests")
   userTests UserTest[]
   answers   Answer[]
+
   createdAt DateTime  @default(now())
 }
 
 model Grade {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  students  User[]   @relation("StudentGrade")
-  teachers  User[]   @relation("TeacherGrades")
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
 
+  students  User[]     @relation("StudentGrade")
+  teachers  User[]     @relation("TeacherGrades")
+  subjects  Subject[]
+
+  createdAt DateTime   @default(now())
+}
+
+model Subject {
+  id        Int       @id @default(autoincrement())
+  name      String
+  grade     Grade     @relation(fields: [gradeId], references: [id])
+  gradeId   Int
+
+  teachers  User[]    @relation("TeacherSubjects")
   tests     Test[]
 
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+
+  @@unique([name, gradeId])
 }
 
 model Test {
   id        Int        @id @default(autoincrement())
   title     String
-  subject   String
 
   teacher   User       @relation("TeacherTests", fields: [teacherId], references: [id])
   teacherId Int
 
-  grade     Grade      @relation(fields: [gradeId], references: [id])
-  gradeId   Int
+  subject   Subject    @relation(fields: [subjectId], references: [id])
+  subjectId Int
 
   questions Question[]
   userTests UserTest[]
-
+   startTime   DateTime?   // test boshlanish vaqti
+   endTime     DateTime?
   createdAt DateTime   @default(now())
 }
 
