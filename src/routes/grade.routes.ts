@@ -90,7 +90,7 @@ router.post("/:id/add-teacher", authenticate, authorize(["ADMIN"]), async (req, 
 
     const grade = await prisma.grade.update({
       where: { id: Number(id) },
-      data: {
+      data: { 
         teachers: {
           connect: { id: Number(teacherId) },
         },
