@@ -68,6 +68,7 @@ model Test {
    startTime   DateTime?   // test boshlanish vaqti
    endTime     DateTime?
   createdAt DateTime   @default(now())
+  grade  Grade? @relation(...) 
 }
 
 model Question {
