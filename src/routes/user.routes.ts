@@ -8,48 +8,81 @@ const router = Router();
 /**
  * 🟢 Admin → foydalanuvchi yaratish
  */
-router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, res) => {
-  try {
-    const { name, surname, username, password, role, gradeId, teacherGradeIds, teacherSubjectIds } = req.body;
+router.post(
+  "/",
+  authenticate,
+  authorize(["ADMIN"]),
+  async (req: AuthRequest, res) => {
+    try {
+      const {
+        name,
+        surname,
+        username,
+        password,
+        role,
+        gradeId,
+        teacherGradeIds,
+        teacherSubjectIds,
+      } = req.body;
 
-    if (!name || !surname || !username || !password || !role) {
-      return res.status(400).json({ message: "ism, familya, username, parol va role kiritilishi kerak" });
-    }
+      if (!name || !surname || !username || !password || !role) {
+        return res
+          .status(400)
+          .json({ message: "ism, familya, username, parol va role kiritilishi kerak" });
+      }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+      // Username uniqueness tekshiruvi (unique constraint xatolarini oldini oladi)
+      const existing = await prisma.user.findUnique({ where: { username } });
+      if (existing) {
+        return res.status(400).json({ message: "Bu username allaqachon mavjud" });
+      }
 
-    const user = await prisma.user.create({
-      data: {
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const data: any = {
         name,
         surname,
         username,
         password: hashedPassword,
         role,
+      };
 
-        ...(role === "STUDENT" && gradeId
-          ? { grade: { connect: { id: gradeId } } }
-          : {}),
+      // Student uchun: to'g'ridan-to'g'ri grade bog'lash
+      if (role === "STUDENT" && gradeId) {
+        data.grade = { connect: { id: Number(gradeId) } };
+      }
 
-        ...(role === "TEACHER"
-          ? {
-              ...(Array.isArray(teacherGradeIds) && teacherGradeIds.length > 0
-                ? { teacherGrades: { connect: teacherGradeIds.map((id: number) => ({ id })) } }
-                : {}),
-              ...(Array.isArray(teacherSubjectIds) && teacherSubjectIds.length > 0
-                ? { teacherSubjects: { connect: teacherSubjectIds.map((id: number) => ({ id })) } }
-                : {}),
-            }
-          : {}),
-      },
-      include: { grade: true, teacherGrades: true, teacherSubjects: true },
-    });
+      // Teacher uchun: teacherGrades va teacherSubjects nomlari
+      if (role === "TEACHER") {
+        if (Array.isArray(teacherGradeIds) && teacherGradeIds.length > 0) {
+          data.teacherGrades = {
+            connect: teacherGradeIds.map((id: any) => ({ id: Number(id) })),
+          };
+        }
+        if (Array.isArray(teacherSubjectIds) && teacherSubjectIds.length > 0) {
+          data.teacherSubjects = {
+            connect: teacherSubjectIds.map((id: any) => ({ id: Number(id) })),
+          };
+        }
+      }
 
-    res.json({ message: "Foydalanuvchi yaratildi", user });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server xatosi" });
+      const user = await prisma.user.create({
+        data,
+        include: {
+          grade: true,
+          teacherGrades: true,
+          teacherSubjects: true,
+        },
+      });
+
+      res.json({ message: "Foydalanuvchi yaratildi", user });
+    } catch (err: any) {
+      console.error("User create error:", err);
+      // Development uchun xato xabarini yuborish (productionda ehtiyot bo'ling)
+      res.status(500).json({ message: "Server xatosi", error: err.message || err });
+    }
   }
-});
+);
 
 /**
  * 🟢 Barcha foydalanuvchilar

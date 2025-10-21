@@ -127,5 +127,69 @@ router.post("/:id/remove-teacher", authenticate, authorize(["ADMIN"]), async (re
     res.status(500).json({ message: "O'qituvchi olib tashlashda xatolik" });
   }
 });
+// 👨‍🏫 Teacherning o‘ziga biriktirilgan sinflar ro‘yxati
+router.get("/my", authenticate, authorize(["TEACHER"]), async (req: any, res) => {
+  try {
+    const teacherId = req.user.id;
+
+    const grades = await prisma.grade.findMany({
+      where: { teachers: { some: { id: teacherId } } },
+      include: { subjects: true },
+    });
+
+    res.json(grades);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Sinflarni olishda xatolik" });
+  }
+});
+// 🧍‍♂️ Berilgan sinfga tegishli o‘quvchilarni olish (teacher/student uchun)
+router.get("/:gradeId/students", authenticate, async (req: any, res) => {
+  try {
+    const gradeId = Number(req.params.gradeId);
+    const user = req.user;
+
+    // 👨‍🏫 Agar teacher bo‘lsa — shu sinfga biriktirilganligini tekshiramiz
+    if (user.role === "TEACHER") {
+      const teacherHasAccess = await prisma.grade.findFirst({
+        where: {
+          id: gradeId,
+          teachers: {
+            some: { id: user.id },
+          },
+        },
+      });
+
+      if (!teacherHasAccess) {
+        return res.status(403).json({ message: "❌ Siz bu sinfga kirish huquqiga ega emassiz" });
+      }
+    }
+
+    // 👨‍🎓 Agar student bo‘lsa — faqat o‘z sinfiga ruxsat
+    if (user.role === "STUDENT" && user.gradeId !== gradeId) {
+      return res.status(403).json({ message: "❌ Siz boshqa sinf ma'lumotlariga kira olmaysiz" });
+    }
+
+    const students = await prisma.user.findMany({
+      where: {
+        gradeId: gradeId,
+        role: "STUDENT",
+      },
+      select: {
+        id: true,
+        name: true,
+        surname: true,
+        username: true,
+      },
+      orderBy: [{ surname: "asc" },{name:"asc"}]
+    });
+
+    res.json(students);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "O‘quvchilarni olishda xatolik" });
+  }
+});
+
 
 export default router;
