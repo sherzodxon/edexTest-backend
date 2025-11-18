@@ -6,86 +6,67 @@ import { authenticate, authorize, AuthRequest } from "../middlewares/auth";
 const router = Router();
 
 /**
- * 🟢 Admin → foydalanuvchi yaratish
+ * 🟢 Foydalanuvchi yaratish
  */
-router.post(
-  "/",
-  authenticate,
-  authorize(["ADMIN"]),
-  async (req: AuthRequest, res) => {
-    try {
-      const {
-        name,
-        surname,
-        username,
-        password,
-        role,
-        gradeId,
-        teacherGradeIds,
-        teacherSubjectIds,
-      } = req.body;
+router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, res) => {
+  try {
+    const {
+      name,
+      surname,
+      username,
+      password,
+      role,
+      gradeId,
+      teacherGradeIds,
+      teacherSubjectIds,
+    } = req.body;
 
-      if (!name || !surname || !username || !password || !role) {
-        return res
-          .status(400)
-          .json({ message: "ism, familya, username, parol va role kiritilishi kerak" });
-      }
-
-      // Username uniqueness tekshiruvi (unique constraint xatolarini oldini oladi)
-      const existing = await prisma.user.findUnique({ where: { username } });
-      if (existing) {
-        return res.status(400).json({ message: "Bu username allaqachon mavjud" });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const data: any = {
-        name,
-        surname,
-        username,
-        password: hashedPassword,
-        role,
-      };
-
-      // Student uchun: to'g'ridan-to'g'ri grade bog'lash
-      if (role === "STUDENT" && gradeId) {
-        data.grade = { connect: { id: Number(gradeId) } };
-      }
-
-      // Teacher uchun: teacherGrades va teacherSubjects nomlari
-      if (role === "TEACHER") {
-        if (Array.isArray(teacherGradeIds) && teacherGradeIds.length > 0) {
-          data.teacherGrades = {
-            connect: teacherGradeIds.map((id: any) => ({ id: Number(id) })),
-          };
-        }
-        if (Array.isArray(teacherSubjectIds) && teacherSubjectIds.length > 0) {
-          data.teacherSubjects = {
-            connect: teacherSubjectIds.map((id: any) => ({ id: Number(id) })),
-          };
-        }
-      }
-
-      const user = await prisma.user.create({
-        data,
-        include: {
-          grade: true,
-          teacherGrades: true,
-          teacherSubjects: true,
-        },
-      });
-
-      res.json({ message: "Foydalanuvchi yaratildi", user });
-    } catch (err: any) {
-      console.error("User create error:", err);
-      // Development uchun xato xabarini yuborish (productionda ehtiyot bo'ling)
-      res.status(500).json({ message: "Server xatosi", error: err.message || err });
+    if (!name || !surname || !username || !password || !role) {
+      return res.status(400).json({ message: "ism, familya, username, parol va role kiritilishi kerak" });
     }
+
+    const existing = await prisma.user.findUnique({ where: { username } });
+    if (existing) {
+      return res.status(400).json({ message: "Bu username allaqachon mavjud" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const data: any = {
+      name,
+      surname,
+      username,
+      password: hashedPassword,
+      role,
+    };
+
+    if (role === "STUDENT" && gradeId) {
+      data.grade = { connect: { id: Number(gradeId) } };
+    }
+
+    if (role === "TEACHER") {
+      if (Array.isArray(teacherGradeIds) && teacherGradeIds.length > 0) {
+        data.teacherGrades = { connect: teacherGradeIds.map((id: any) => ({ id: Number(id) })) };
+      }
+      if (Array.isArray(teacherSubjectIds) && teacherSubjectIds.length > 0) {
+        data.teacherSubjects = { connect: teacherSubjectIds.map((id: any) => ({ id: Number(id) })) };
+      }
+    }
+
+    const user = await prisma.user.create({
+      data,
+      include: { grade: true, teacherGrades: true, teacherSubjects: true },
+    });
+
+    res.json({ message: "Foydalanuvchi yaratildi", user });
+  } catch (err: any) {
+    console.error("User create error:", err);
+    res.status(500).json({ message: "Server xatosi", error: err.message || err });
   }
-);
+});
 
 /**
- * 🟢 Barcha foydalanuvchilar
+ * 🟢 Barcha foydalanuvchilarni olish
  */
 router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
@@ -100,36 +81,56 @@ router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
 });
 
 /**
- * 🟢 Foydalanuvchini yangilash
+ * 🟢 Individual foydalanuvchini olish
  */
+router.get("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await prisma.user.findUnique({
+      where: { id: Number(id) },
+      include: { grade: true, teacherGrades: true, teacherSubjects: true },
+    });
+    if (!user) return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
+    res.json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server xatosi" });
+  }
+});
+
 router.put("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, surname, username, role, gradeId, teacherGradeIds, teacherSubjectIds } = req.body;
+    const { name, surname, username, role, gradeId, teacherGradeIds, teacherSubjectIds, password } = req.body;
+
+    const data: any = {
+      name,
+      surname,
+      username,
+      role,
+      ...(role === "STUDENT" && gradeId
+        ? { grade: { connect: { id: gradeId } } }
+        : { grade: { disconnect: true } }),
+      ...(role === "TEACHER"
+        ? {
+            teacherGrades: Array.isArray(teacherGradeIds)
+              ? { set: teacherGradeIds.map((id: number) => ({ id })) }
+              : { set: [] },
+            teacherSubjects: Array.isArray(teacherSubjectIds)
+              ? { set: teacherSubjectIds.map((id: number) => ({ id })) }
+              : { set: [] },
+          }
+        : { teacherGrades: { set: [] }, teacherSubjects: { set: [] } }),
+    };
+
+    if (password) {
+      const bcrypt = require("bcryptjs");
+      data.password = await bcrypt.hash(password, 10);
+    }
 
     const user = await prisma.user.update({
       where: { id: Number(id) },
-      data: {
-        name,
-        surname,
-        username,
-        role,
-
-        ...(role === "STUDENT" && gradeId
-          ? { grade: { connect: { id: gradeId } } }
-          : { grade: { disconnect: true } }),
-
-        ...(role === "TEACHER"
-          ? {
-              teacherGrades: Array.isArray(teacherGradeIds)
-                ? { set: teacherGradeIds.map((id: number) => ({ id })) }
-                : { set: [] },
-              teacherSubjects: Array.isArray(teacherSubjectIds)
-                ? { set: teacherSubjectIds.map((id: number) => ({ id })) }
-                : { set: [] },
-            }
-          : { teacherGrades: { set: [] }, teacherSubjects: { set: [] } }),
-      },
+      data,
       include: { grade: true, teacherGrades: true, teacherSubjects: true },
     });
 
@@ -155,4 +156,3 @@ router.delete("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
 });
 
 export default router;
- 

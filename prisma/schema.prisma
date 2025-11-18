@@ -124,7 +124,7 @@ model UserTest {
 
   finished  Boolean  @default(false)
   score     Int      @default(0)
-
+  questionOrder String?
   createdAt DateTime @default(now())
 
   @@unique([userId, testId], name: "userId_testId")

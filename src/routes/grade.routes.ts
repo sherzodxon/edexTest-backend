@@ -190,6 +190,30 @@ router.get("/:gradeId/students", authenticate, async (req: any, res) => {
     res.status(500).json({ message: "O‘quvchilarni olishda xatolik" });
   }
 });
+/**
+ * 🔹 Ma’lum bir sinfni ID bo‘yicha olish (faqat o‘sha sinfga tegishli)
+ */
+router.get("/:gradeId", authenticate, authorize(["ADMIN", "TEACHER"]), async (req, res) => {
+  try {
+    const { gradeId } = req.params;
 
+    const grade = await prisma.grade.findUnique({
+      where: { id: Number(gradeId) },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!grade) {
+      return res.status(404).json({ message: "Sinf topilmadi" });
+    }
+
+    res.json(grade);
+  } catch (err) {
+    console.error("Xatolik (GET /grades/:gradeId):", err);
+    res.status(500).json({ message: "Sinfni olishda xatolik" });
+  }
+});
 
 export default router;
