@@ -12,7 +12,7 @@ export const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  console.log("🟢 Connected:", socket.id);
+  console.log(" Connected:", socket.id);
 
   socket.on("joinTest", async (payload) => {
     try {
@@ -23,10 +23,7 @@ io.on("connection", (socket) => {
       socket.join(`test_${testId}`);
       console.log(`Socket ${socket.id} joined test_${testId} as ${role} (${userId})`);
 
-      // Agar bu student bo'lsa — barchaga notify qilamiz
       if (role !== "teacher") {
-        // agar kerak bo'lsa, DBdan to'liq user ma'lumotini olishingiz mumkin
-        // const user = await prisma.user.findUnique({ where: { id: Number(userId) }, select: { id: true, name: true, surname: true } });
         io.to(`test_${testId}`).emit("userOnline", {
           userId,
           name,
@@ -41,9 +38,8 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     const { userId, role, testId } = socket.data;
-    console.log("🔴 Disconnected:", socket.id, userId, role, testId);
+    console.log("Disconnected:", socket.id, userId, role, testId);
 
-    // agar bu student bo'lsa notify
     if (role && role !== "teacher" && testId) {
       io.to(`test_${testId}`).emit("userOffline", { userId, isOnline: false });
     }
@@ -53,5 +49,5 @@ io.on("connection", (socket) => {
 
 const PORT = 3001;
 server.listen(PORT, () => {
-  console.log(`✅ Socket server ${PORT}-portda ishlayapti`);
+  console.log(`Socket server ${PORT}-portda ishlayapti`);
 });

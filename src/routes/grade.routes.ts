@@ -127,7 +127,7 @@ router.post("/:id/remove-teacher", authenticate, authorize(["ADMIN"]), async (re
     res.status(500).json({ message: "O'qituvchi olib tashlashda xatolik" });
   }
 });
-// 👨‍🏫 Teacherning o‘ziga biriktirilgan sinflar ro‘yxati
+
 router.get("/my", authenticate, authorize(["TEACHER"]), async (req: any, res) => {
   try {
     const teacherId = req.user.id;
@@ -143,13 +143,13 @@ router.get("/my", authenticate, authorize(["TEACHER"]), async (req: any, res) =>
     res.status(500).json({ message: "Sinflarni olishda xatolik" });
   }
 });
-// 🧍‍♂️ Berilgan sinfga tegishli o‘quvchilarni olish (teacher/student uchun)
+
 router.get("/:gradeId/students", authenticate, async (req: any, res) => {
   try {
     const gradeId = Number(req.params.gradeId);
     const user = req.user;
 
-    // 👨‍🏫 Agar teacher bo‘lsa — shu sinfga biriktirilganligini tekshiramiz
+
     if (user.role === "TEACHER") {
       const teacherHasAccess = await prisma.grade.findFirst({
         where: {
@@ -161,13 +161,12 @@ router.get("/:gradeId/students", authenticate, async (req: any, res) => {
       });
 
       if (!teacherHasAccess) {
-        return res.status(403).json({ message: "❌ Siz bu sinfga kirish huquqiga ega emassiz" });
+        return res.status(403).json({ message: "Siz bu sinfga kirish huquqiga ega emassiz" });
       }
     }
 
-    // 👨‍🎓 Agar student bo‘lsa — faqat o‘z sinfiga ruxsat
     if (user.role === "STUDENT" && user.gradeId !== gradeId) {
-      return res.status(403).json({ message: "❌ Siz boshqa sinf ma'lumotlariga kira olmaysiz" });
+      return res.status(403).json({ message: "Siz boshqa sinf ma'lumotlariga kira olmaysiz" });
     }
 
     const students = await prisma.user.findMany({
@@ -190,9 +189,7 @@ router.get("/:gradeId/students", authenticate, async (req: any, res) => {
     res.status(500).json({ message: "O‘quvchilarni olishda xatolik" });
   }
 });
-/**
- * 🔹 Ma’lum bir sinfni ID bo‘yicha olish (faqat o‘sha sinfga tegishli)
- */
+
 router.get("/:gradeId", authenticate, authorize(["ADMIN", "TEACHER"]), async (req, res) => {
   try {
     const { gradeId } = req.params;

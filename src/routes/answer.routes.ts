@@ -154,7 +154,6 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER"]), async (req: 
     const userFinished = !!userTest;
     const userScore = userTest?.score ?? null;
 
-    // 🔹 Agar test yakunlangan yoki vaqti tugagan bo‘lsa — to‘liq natijalar qaytadi
     if (userFinished || hasEnded) {
       const resultData = {
         id: test.id,
@@ -180,7 +179,7 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER"]), async (req: 
             options: q.options.map((o) => ({
               id: o.id,
               text: o.text,
-              isCorrect: o.isCorrect, // ✅ to‘liq ko‘rsatiladi
+              isCorrect: o.isCorrect, 
             })),
           };
         }),
@@ -188,8 +187,6 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER"]), async (req: 
 
       return res.json(resultData);
     }
-
-    // 🔹 Aks holda (test davom etayotgan bo‘lsa)
     const activeData = {
       id: test.id,
       title: test.title,
@@ -204,51 +201,41 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER"]), async (req: 
         options: q.options.map((o) => ({
           id: o.id,
           text: o.text,
-          // ❌ isCorrect yuborilmaydi (test davom etayotgan paytda)
         })),
       })),
     };
 
     return res.json(activeData);
   } catch (err) {
-    console.error("❌ Testni olishda xatolik:", err);
+    console.error("Testni olishda xatolik:", err);
     res.status(500).json({ message: "Testni olishda xatolik" });
   }
 });
 
 
-/* ─────────────────────────────────────────────
- 📌 4. TEST TOPSHIRISH (student)
-────────────────────────────────────────────── */
-/* ─────────────────────────────────────────────
- 📌 4. TEST TOPSHIRISH (student) — TO‘G‘RI VERSIYA
-────────────────────────────────────────────── */
 router.post("/:id/submit", authenticate, authorize(["STUDENT"]), async (req: AuthRequest, res) => {
   try {
     const testId = Number(req.params.id);
     const userId = req.user!.id;
-    const { answers } = req.body; // [{ questionId, optionId }]
+    const { answers } = req.body; 
 
-    // Testni savollari bilan olish
     const test = await prisma.test.findUnique({
       where: { id: testId },
       include: { questions: { include: { options: true } } },
     });
     if (!test) return res.status(404).json({ message: "Test topilmadi" });
 
-    // Hozirgi vaqtni tekshiramiz
+  
     const now = new Date();
     if (test.startTime && now < test.startTime)
       return res.status(400).json({ message: "Test hali boshlanmagan" });
     if (test.endTime && now > test.endTime)
       return res.status(400).json({ message: "Test muddati tugagan" });
 
-    // Avval eski javoblarni tozalaymiz (agar qayta topshirsa)
     await prisma.answer.deleteMany({
       where: { studentId: userId, questionId: { in: test.questions.map((q) => q.id) } },
     });
 
-    // Har bir javobni saqlaymiz
     for (const ans of answers) {
       await prisma.answer.create({
         data: {
@@ -259,7 +246,6 @@ router.post("/:id/submit", authenticate, authorize(["STUDENT"]), async (req: Aut
       });
     }
 
-    // Endi ballni hisoblaymiz
     let correctCount = 0;
     for (const q of test.questions) {
       const correctOption = q.options.find((o) => o.isCorrect);
@@ -269,26 +255,21 @@ router.post("/:id/submit", authenticate, authorize(["STUDENT"]), async (req: Aut
       }
     }
 
-    // Foizga aylantiramiz
     const percentage = Math.round((correctCount / test.questions.length) * 100);
 
-    // userTest jadvalida saqlaymiz
     await prisma.userTest.upsert({
       where: { userId_testId: { userId, testId } },
       update: { finished: true, score: percentage },
       create: { userId, testId, finished: true, score: percentage },
     });
 
-    res.json({ message: "✅ Test yakunlandi", score: percentage });
+    res.json({ message: "Test yakunlandi", score: percentage });
   } catch (err) {
-    console.error("❌ Testni yakunlashda xatolik:", err);
+    console.error("Testni yakunlashda xatolik:", err);
     res.status(500).json({ message: "Testni yakunlashda xatolik yuz berdi" });
   }
 });
 
-/* ─────────────────────────────────────────────
- 📌 5. TEST NATIJALARI (teacher)
-────────────────────────────────────────────── */
 router.get("/:id/results", authenticate, authorize(["TEACHER"]), async (req, res) => {
   try {
     const testId = Number(req.params.id);
@@ -332,9 +313,6 @@ router.get("/:id/results", authenticate, authorize(["TEACHER"]), async (req, res
   }
 });
 
-/* ─────────────────────────────────────────────
- 📌 6. FAOL TALABALAR (socket orqali)
-────────────────────────────────────────────── */
 router.get(
   "/:id/active-students",
   authenticate,
@@ -362,15 +340,12 @@ router.get(
 
       res.json({ active: students });
     } catch (err) {
-      console.error("❌ Faol talabalarni olishda xatolik:", err);
+      console.error("Faol talabalarni olishda xatolik:", err);
       res.status(500).json({ message: "Faol talabalarni olishda xatolik" });
     }
   }
 );
 
-/* ======================================
-   📘 ADMIN: barcha testlarni olish
-====================================== */
 router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const tests = await prisma.test.findMany({
@@ -389,20 +364,15 @@ router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   }
 });
 
-/* ======================================
-   📘 ADMIN: testni o‘chirish
-====================================== */
 router.delete("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const id = Number(req.params.id);
 
-    // Avval test bor-yo‘qligini tekshiramiz
     const test = await prisma.test.findUnique({ where: { id } });
     if (!test) {
       return res.status(404).json({ message: "Test topilmadi" });
     }
 
-    // Tegishli savollar, variantlar va javoblarni o‘chiramiz
     await prisma.answer.deleteMany({
       where: { question: { testId: id } },
     });
@@ -416,19 +386,15 @@ router.delete("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
       where: { testId: id },
     });
 
-    // Eng so‘ng testni o‘chiramiz
     await prisma.test.delete({ where: { id } });
 
     res.json({ message: "Test muvaffaqiyatli o‘chirildi" });
   } catch (err) {
-    console.error("Testni o‘chirishda xatolik:", err);
-    res.status(500).json({ message: "Testni o‘chirishda xatolik yuz berdi" });
+    console.error("Testni o'chirishda xatolik:", err);
+    res.status(500).json({ message: "Testni o'chirishda xatolik yuz berdi" });
   }
 });
 
-/* ======================================
-   🎓 STUDENT: testni olish (va yakunlangandan keyin ko‘rsatish)
-====================================== */
 router.get("/:id", authenticate, authorize(["STUDENT", "ADMIN"]), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
@@ -447,12 +413,10 @@ router.get("/:id", authenticate, authorize(["STUDENT", "ADMIN"]), async (req: Au
 
     if (!test) return res.status(404).json({ message: "Test topilmadi" });
 
-    // O‘quvchi bu testni tugatganmi?
     const userTest = await prisma.userTest.findUnique({
       where: { userId_testId: { userId, testId: id } },
     });
 
-    // Agar tugallanmagan bo‘lsa — isCorrect maydoni olib tashlanadi
     if (!userTest?.finished) {
       const safeTest = {
         ...test,
@@ -464,7 +428,6 @@ router.get("/:id", authenticate, authorize(["STUDENT", "ADMIN"]), async (req: Au
       return res.json(safeTest);
     }
 
-    // Tugallangan bo‘lsa — isCorrect bilan qaytariladi
     res.json({
       ...test,
       userTest,

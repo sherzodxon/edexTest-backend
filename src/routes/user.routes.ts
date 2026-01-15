@@ -5,9 +5,6 @@ import { authenticate, authorize, AuthRequest } from "../middlewares/auth";
 
 const router = Router();
 
-/**
- * 🟢 Foydalanuvchi yaratish
- */
 router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, res) => {
   try {
     const {
@@ -65,9 +62,6 @@ router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, re
   }
 });
 
-/**
- * 🟢 Barcha foydalanuvchilarni olish
- */
 router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -80,9 +74,6 @@ router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   }
 });
 
-/**
- * 🟢 Individual foydalanuvchini olish
- */
 router.get("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
@@ -134,21 +125,18 @@ router.put("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
       include: { grade: true, teacherGrades: true, teacherSubjects: true },
     });
 
-    res.json({ message: "✅ Foydalanuvchi yangilandi", user });
+    res.json({ message: "Foydalanuvchi yangilandi", user });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server xatosi" });
   }
 });
 
-/**
- * 🟢 Foydalanuvchini o‘chirish
- */
 router.delete("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
     await prisma.user.delete({ where: { id: Number(id) } });
-    res.json({ message: "✅ Foydalanuvchi o‘chirildi" });
+    res.json({ message: "Foydalanuvchi o'chirildi" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server xatosi" });

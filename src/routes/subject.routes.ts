@@ -4,9 +4,6 @@ import {authenticate, authorize, AuthRequest} from "../middlewares/auth";
 
 const router = Router();
 
-/**
- * 🟢 Subject yaratish (faqat ADMIN)
- */
 router.post("/", authenticate, authorize(["ADMIN"]), async(req, res) => {
     try {
         const {name, gradeId} = req.body;
@@ -14,7 +11,7 @@ router.post("/", authenticate, authorize(["ADMIN"]), async(req, res) => {
         if (!name || !gradeId) {
             return res
                 .status(400)
-                .json({message: "❌ name va gradeId kiritilishi shart"});
+                .json({message: "name va gradeId kiritilishi shart"});
         }
 
         const subject = await prisma
@@ -29,7 +26,7 @@ router.post("/", authenticate, authorize(["ADMIN"]), async(req, res) => {
                 }
             });
 
-        res.json({message: "✅ Subject yaratildi", subject});
+        res.json({message: "Subject yaratildi", subject});
     } catch (err) {
         console.error(err);
         res
@@ -38,9 +35,6 @@ router.post("/", authenticate, authorize(["ADMIN"]), async(req, res) => {
     }
 });
 
-/**
- * 🟢 Barcha subjectlarni olish
- */
 router.get("/", authenticate, async(req, res) => {
     try {
         const subjects = await prisma
@@ -59,9 +53,6 @@ router.get("/", authenticate, async(req, res) => {
     }
 });
 
-/**
- * 🟢 Bitta grade uchun subjectlarni olish
- */
 router.get("/grade/:gradeId", authenticate, async(req, res) => {
     try {
         const gradeId = Number(req.params.gradeId);
@@ -78,7 +69,7 @@ router.get("/grade/:gradeId", authenticate, async(req, res) => {
             .json({message: "Server xatosi"});
     }
 });
-// 🟡 O'qituvchiga biriktirilgan fanlarni olish
+
 router.get("/my", authenticate, authorize(["TEACHER"]), async(req : any, res) => {
     try {
         const teacherId = req.user.id;
@@ -132,10 +123,6 @@ router.delete("/:id", authenticate, authorize(["ADMIN"]), async(req, res) => {
     res.json({success: true});
 });
 
-/**
- * 🟢 Student uchun fan testlarini olish
- * GET /student/subjects/:id/tests
- */
 router.get("/:id/tests", authenticate, authorize(["STUDENT"]), async (req: AuthRequest, res) => {
   try {
     const subjectId = Number(req.params.id);
@@ -148,7 +135,7 @@ router.get("/:id/tests", authenticate, authorize(["STUDENT"]), async (req: AuthR
         tests: {
           include: {
             userTests: {
-              where: { userId: studentId }, // faqat o'z natijasi
+              where: { userId: studentId }, 
             },
           },
         },
@@ -157,7 +144,6 @@ router.get("/:id/tests", authenticate, authorize(["STUDENT"]), async (req: AuthR
 
     if (!subject) return res.status(404).json({ message: "Fan topilmadi" });
 
-    // Frontendga yuboriladigan format
     const tests = subject.tests.map((t) => {
       const ut = t.userTests[0];
       return {
@@ -177,7 +163,7 @@ router.get("/:id/tests", authenticate, authorize(["STUDENT"]), async (req: AuthR
       tests,
     });
   } catch (err) {
-    console.error("❌ Student tests fetch error:", err);
+    console.error("Student tests fetch error:", err);
     res.status(500).json({ message: "Fan testlarini olishda xatolik yuz berdi" });
   }
 });
@@ -207,7 +193,6 @@ router.get("/teacher/:id/tests", authenticate, authorize(["TEACHER"]), async (re
 });
 
 
-// /subjects/:id/average
 router.get("/:id/average", authenticate, authorize(["TEACHER"]), async (req: AuthRequest, res) => {
   try {
     const subjectId = Number(req.params.id);
@@ -289,7 +274,6 @@ router.get("/teacher/subjects/:id/tests", authenticate, authorize(["TEACHER"]), 
   }
 });
 
-// ADMIN: barcha fanlar ro'yxati
 router.get("/admin/subjects", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
     const subjects = await prisma.subject.findMany({ include: { grade: true } });
@@ -301,15 +285,11 @@ router.get("/admin/subjects", authenticate, authorize(["ADMIN"]), async (req, re
 });
 
 
-/**
- * 🔹 Fan bo‘yicha testlarni olish (STUDENT / TEACHER / ADMIN)
- */
 router.get("/admin/:id/tests", authenticate, async (req: AuthRequest, res) => {
   try {
     const subjectId = Number(req.params.id);
     const user = req.user!;
 
-    // Fanni tekshiramiz
     const subject = await prisma.subject.findUnique({
       where: { id: subjectId },
       include: {
@@ -327,7 +307,6 @@ router.get("/admin/:id/tests", authenticate, async (req: AuthRequest, res) => {
     let testsData: any[] = [];
 
     if (user.role === "STUDENT") {
-      // O‘quvchi: faqat o‘z natijasini oladi
       const studentTests = subject.tests.map((t) => {
         const ut = t.userTests.find((ut) => ut.userId === user.id);
         return {
@@ -349,7 +328,6 @@ router.get("/admin/:id/tests", authenticate, async (req: AuthRequest, res) => {
       });
       testsData = studentTests;
     } else if (user.role === "TEACHER") {
-      // O‘qituvchi: faqat shu fan unga biriktirilgan bo‘lsa
       if (!subject.teachers.some((t) => t.id === user.id)) {
         return res
           .status(403)
@@ -372,7 +350,6 @@ router.get("/admin/:id/tests", authenticate, async (req: AuthRequest, res) => {
         };
       });
     } else if (user.role === "ADMIN") {
-      // Admin: barcha testlar va barcha userTests
       testsData = subject.tests.map((t) => ({
         id: t.id,
         title: t.title,
