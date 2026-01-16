@@ -139,7 +139,7 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), asy
           return {
             id: q.id,
             text: q.text,
-            img: q.img ? `http://localhost:5000${q.img}` : null,
+            img: q.img ? `https://api.edexschool.uz${q.img}` : null,
             correctOption: correctOption?.text ?? null,
             selectedOption: userAnswer
               ? q.options.find((o) => o.id === userAnswer.optionId)?.text
@@ -167,7 +167,7 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), asy
       questions: orderedQuestions.map((q) => ({
         id: q.id,
         text: q.text,
-        img: q.img ? `http://localhost:5000${q.img}` : null,
+        img: q.img ? `https://api.edexschool.uz${q.img}` : null,
         options: q.options.map((o) => ({ id: o.id, text: o.text })),
       })),
     };
@@ -420,7 +420,7 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), asy
         return {
           id: q.id,
           text: q.text,
-          img: q.img ? `http://localhost:5000${q.img}` : null,
+          img: q.img ? `https://api.edexschool.uz${q.img}` : null,
           correctOption: correctOption?.text ?? null,
           selectedOption: userAnswer ? q.options.find((o) => o.id === userAnswer.optionId)?.text : null,
           isCorrect: userAnswer ? q.options.find((o) => o.id === userAnswer.optionId)?.isCorrect : false,
