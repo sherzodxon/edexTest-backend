@@ -2,11 +2,10 @@
   "name": "backend",
   "version": "1.0.0",
   "main": "index.js",
-
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --watch src --exec ts-node src/app.ts",
-    "start":""
+    "start": "node dist/app.js"
   },
   "keywords": [],
   "author": "",
@@ -21,8 +20,7 @@
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^2.0.2",
-    "socket.io": "^4.8.1"
+    "multer": "^2.0.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

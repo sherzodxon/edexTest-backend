@@ -2,8 +2,6 @@ import { Router } from "express";
 import prisma from "../prisma/client";
 import { authenticate, authorize, AuthRequest } from "../middlewares/auth";
 import multer from "multer";
-import { getIO } from "../socket";
-
 import path from "path";
 import fs from "fs";
 
@@ -314,28 +312,6 @@ router.get("/:id/results", authenticate, authorize(["TEACHER"]), async (req, res
 });
 
 
-router.get("/:id/active-students", authenticate, authorize(["TEACHER"]), async (req: AuthRequest, res) => {
-  try {
-    const io = getIO();
-    const testId = Number(req.params.id);
-    if (isNaN(testId)) return res.status(400).json({ message: "Noto'g'ri test ID" });
-
-    const room = io.sockets.adapter.rooms.get(`test_${testId}`);
-    if (!room || room.size === 0) return res.json({ active: [] });
-
-    const connectedUsers: number[] = [];
-    Array.from(room).forEach((socketId) => {
-      const socket = io.sockets.sockets.get(socketId);
-      if (socket && socket.data?.userId) connectedUsers.push(socket.data.userId);
-    });
-
-    const students = await prisma.user.findMany({ where: { id: { in: connectedUsers } }, select: { id: true, name: true, surname: true } });
-    res.json({ active: students });
-  } catch (err) {
-    console.error("Faol talabalarni olishda xatolik:", err);
-    res.status(500).json({ message: "Faol talabalarni olishda xatolik" });
-  }
-});
 
 router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
