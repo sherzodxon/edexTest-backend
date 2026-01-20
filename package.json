@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --watch src --exec ts-node src/app.ts",
-    "start": "node dist/app.js"
+    "start": "node dist/app.js",
+    "build":"tsc"
   },
   "keywords": [],
   "author": "",
