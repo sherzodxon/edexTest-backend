@@ -2,11 +2,13 @@ import { Router } from "express";
 import prisma from "../prisma/client";
 import { authenticate, authorize, AuthRequest } from "../middlewares/auth";
 import multer from "multer";
-import { io } from "../socket/index";
+import { getIO } from "../socket";
+
 import path from "path";
 import fs from "fs";
 
 const router = Router();
+
 
 const uploadDir = path.join(__dirname, "../../uploads/questions");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -314,6 +316,7 @@ router.get("/:id/results", authenticate, authorize(["TEACHER"]), async (req, res
 
 router.get("/:id/active-students", authenticate, authorize(["TEACHER"]), async (req: AuthRequest, res) => {
   try {
+    const io = getIO();
     const testId = Number(req.params.id);
     if (isNaN(testId)) return res.status(400).json({ message: "Noto'g'ri test ID" });
 
