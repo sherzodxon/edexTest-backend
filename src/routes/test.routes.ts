@@ -344,77 +344,77 @@ router.delete("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
     res.status(500).json({ message: "Testni o'chirishda xatolik yuz berdi" });
   }
 });
-router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), async (req: AuthRequest, res) => {
-  try {
-    const testId = Number(req.params.id);
-    const userId = req.user!.id;
-    const now = new Date();
+// router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), async (req: AuthRequest, res) => {
+//   try {
+//     const testId = Number(req.params.id);
+//     const userId = req.user!.id;
+//     const now = new Date();
 
-    const test = await prisma.test.findUnique({
-      where: { id: testId },
-      include: {
-        subject: true,
-        questions: { include: { options: true, answers: { where: { studentId: userId } } } },
-      },
-    });
+//     const test = await prisma.test.findUnique({
+//       where: { id: testId },
+//       include: {
+//         subject: true,
+//         questions: { include: { options: true, answers: { where: { studentId: userId } } } },
+//       },
+//     });
 
-    if (!test) return res.status(404).json({ message: "Test topilmadi" });
+//     if (!test) return res.status(404).json({ message: "Test topilmadi" });
 
-    const hasEnded = test.endTime && now > test.endTime;
-    const hasStarted = test.startTime ? now >= test.startTime : true;
+//     const hasEnded = test.endTime && now > test.endTime;
+//     const hasStarted = test.startTime ? now >= test.startTime : true;
 
-    if (req.user?.role === "STUDENT" && !hasStarted)
-      return res.status(400).json({ message: "Test hali boshlanmagan" });
+//     if (req.user?.role === "STUDENT" && !hasStarted)
+//       return res.status(400).json({ message: "Test hali boshlanmagan" });
 
     
-    let userTest = await prisma.userTest.findUnique({
-      where: { userId_testId: { userId, testId } },
-    });
+//     let userTest = await prisma.userTest.findUnique({
+//       where: { userId_testId: { userId, testId } },
+//     });
 
-    if (hasEnded && !userTest) {
-      let correctCount = 0;
-      for (const q of test.questions) {
-        const studentAns = q.answers[0]; 
-        const correctOption = q.options.find((o) => o.isCorrect);
-        if (studentAns && studentAns.optionId === correctOption?.id) correctCount++;
-      }
-      const score = Math.round((correctCount / test.questions.length) * 100);
-      userTest = await prisma.userTest.create({
-        data: { userId, testId, finished: true, score },
-      });
-    }
+//     if (hasEnded && !userTest) {
+//       let correctCount = 0;
+//       for (const q of test.questions) {
+//         const studentAns = q.answers[0]; 
+//         const correctOption = q.options.find((o) => o.isCorrect);
+//         if (studentAns && studentAns.optionId === correctOption?.id) correctCount++;
+//       }
+//       const score = Math.round((correctCount / test.questions.length) * 100);
+//       userTest = await prisma.userTest.create({
+//         data: { userId, testId, finished: true, score },
+//       });
+//     }
 
-    const userFinished = !!userTest || hasEnded;
-    const userScore = userTest?.score ?? null;
+//     const userFinished = !!userTest || hasEnded;
+//     const userScore = userTest?.score ?? null;
 
-    const resultData = {
-      id: test.id,
-      title: test.title,
-      subject: test.subject.name,
-      userFinished,
-      userScore,
-      questions: test.questions.map((q) => {
-        const userAnswer = q.answers[0]; 
-        const correctOption = q.options.find((o) => o.isCorrect);
-        return {
-          id: q.id,
-          text: q.text,
-          img: q.img ? `https://api.edexschool.uz${q.img}` : null,
-          correctOption: correctOption?.text ?? null,
-          selectedOption: userAnswer ? q.options.find((o) => o.id === userAnswer.optionId)?.text : null,
-          isCorrect: userAnswer ? q.options.find((o) => o.id === userAnswer.optionId)?.isCorrect : false,
-          options: q.options.map((o) => ({ id: o.id, text: o.text, isCorrect: o.isCorrect })),
-        };
-      }),
-    };
+//     const resultData = {
+//       id: test.id,
+//       title: test.title,
+//       subject: test.subject.name,
+//       userFinished,
+//       userScore,
+//       questions: test.questions.map((q) => {
+//         const userAnswer = q.answers[0]; 
+//         const correctOption = q.options.find((o) => o.isCorrect);
+//         return {
+//           id: q.id,
+//           text: q.text,
+//           img: q.img ? `https://api.edexschool.uz${q.img}` : null,
+//           correctOption: correctOption?.text ?? null,
+//           selectedOption: userAnswer ? q.options.find((o) => o.id === userAnswer.optionId)?.text : null,
+//           isCorrect: userAnswer ? q.options.find((o) => o.id === userAnswer.optionId)?.isCorrect : false,
+//           options: q.options.map((o) => ({ id: o.id, text: o.text, isCorrect: o.isCorrect })),
+//         };
+//       }),
+//     };
 
-    return res.json(resultData);
+//     return res.json(resultData);
 
-  } catch (err) {
-    console.error("Testni olishda xatolik:", err);
-    return res.status(500).json({ message: "Testni olishda xatolik" });
-  }
-});
+//   } catch (err) {
+//     console.error("Testni olishda xatolik:", err);
+//     return res.status(500).json({ message: "Testni olishda xatolik" });
+//   }
+// });
 
 router.get(
   "/results/:subjectId",
@@ -549,6 +549,139 @@ router.get(
     }
   }
 );
+router.get(
+  "/admin/:id",
+  authenticate,
+  authorize(["ADMIN"]),
+  async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Noto‘g‘ri ID" });
+    }
+
+    const test = await prisma.test.findUnique({
+      where: { id },
+      include: {
+        subject: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        questions: {
+          include: {
+            options: {
+              select: {
+                id: true,
+                text: true,
+                isCorrect: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!test) {
+      return res.status(404).json({ message: "Test topilmadi" });
+    }
+
+    res.json(test);
+  }
+);
+router.put(
+  "/admin/:id/time",
+  authenticate,
+  authorize(["ADMIN"]),
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Noto‘g‘ri test ID" });
+      }
+
+      const { startTime, endTime } = req.body;
+      if (!endTime) {
+        return res
+          .status(400)
+          .json({ message: "endTime majburiy" });
+      }
+
+      const test = await prisma.test.findUnique({
+        where: { id },
+        select: { startTime: true, endTime: true },
+      });
+
+      if (!test || !test.endTime) {
+        return res.status(404).json({ message: "Test topilmadi" });
+      }
+
+      const now = new Date();
+
+      // ❌ Test yakunlangan → hech narsa o‘zgarmaydi
+      if (test.endTime.getTime() < now.getTime()) {
+        return res.status(400).json({
+          message: "Test yakunlangan. Vaqtni o‘zgartirib bo‘lmaydi",
+        });
+      }
+
+      const dataToUpdate: any = {
+        endTime: new Date(endTime),
+      };
+
+      // 🔒 Test boshlanganmi?
+      const hasStarted =
+        test.startTime && test.startTime.getTime() <= now.getTime();
+
+      if (hasStarted) {
+        // startTime blok
+        if (startTime) {
+          return res.status(400).json({
+            message:
+              "Test boshlangan. Boshlanish vaqtini o‘zgartirib bo‘lmaydi",
+          });
+        }
+      } else {
+        // test hali boshlanmagan → startTime o‘zgarishi mumkin
+        if (startTime) {
+          dataToUpdate.startTime = new Date(startTime);
+        }
+      }
+
+      // 🧠 Mantiqiy tekshiruv
+      const finalStart = dataToUpdate.startTime ?? test.startTime;
+      const finalEnd = dataToUpdate.endTime;
+
+      if (
+        finalStart &&
+        finalEnd &&
+        finalStart.getTime() >= finalEnd.getTime()
+      ) {
+        return res.status(400).json({
+          message:
+            "Boshlanish vaqti tugash vaqtidan oldin bo‘lishi kerak",
+        });
+      }
+
+      const updatedTest = await prisma.test.update({
+        where: { id },
+        data: dataToUpdate,
+      });
+
+      res.json({
+        message: "Test vaqti muvaffaqiyatli yangilandi",
+        test: updatedTest,
+      });
+    } catch (err) {
+      console.error("Admin time update error:", err);
+      res
+        .status(500)
+        .json({ message: "Test vaqtini yangilashda xatolik" });
+    }
+  }
+);
+  
+
 
 
 export default router;
