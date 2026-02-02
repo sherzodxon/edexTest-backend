@@ -167,7 +167,7 @@ router.get("/:id/tests", authenticate, authorize(["STUDENT"]), async (req: AuthR
     res.status(500).json({ message: "Fan testlarini olishda xatolik yuz berdi" });
   }
 });
-router.get("/teacher/:id/tests", authenticate, authorize(["TEACHER"]), async (req:AuthRequest, res) => {
+router.get("/teacher/:id/tests", authenticate, authorize(["TEACHER"]), async (req: AuthRequest, res) => {
   try {
     const subjectId = Number(req.params.id);
     const teacherId = req.user!.id;
@@ -175,23 +175,36 @@ router.get("/teacher/:id/tests", authenticate, authorize(["TEACHER"]), async (re
     const tests = await prisma.test.findMany({
       where: {
         subjectId,
+        teacherId, 
       },
       select: {
         id: true,
         title: true,
         startTime: true,
         endTime: true,
-        createdAt: true
-      }
+        createdAt: true,
+        _count: {
+          select: { questions: true } 
+        }
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
-    res.json(tests);
+    const formattedTests = tests.map(t => ({
+      id: t.id,
+      title: t.title,
+      startTime: t.startTime,
+      endTime: t.endTime,
+      createdAt: t.createdAt,
+      questionCount: t._count.questions 
+    }));
+
+    res.json(formattedTests);
   } catch (err) {
     console.error("Teacher tests error:", err);
     res.status(500).json({ message: "Testlarni olishda xatolik yuz berdi" });
   }
 });
-
 
 router.get("/:id/average", authenticate, authorize(["TEACHER"]), async (req: AuthRequest, res) => {
   try {
@@ -204,7 +217,16 @@ router.get("/:id/average", authenticate, authorize(["TEACHER"]), async (req: Aut
         teachers: true,
         tests: {
           where: { teacherId },
-          include: { userTests: true }
+          include: { 
+            userTests: {
+              // MUHIM: Faqat STUDENT rolidagi foydalanuvchilarning natijalarini olamiz
+              where: {
+                user: {
+                  role: "STUDENT"
+                }
+              }
+            } 
+          }
         }
       }
     });
@@ -218,6 +240,7 @@ router.get("/:id/average", authenticate, authorize(["TEACHER"]), async (req: Aut
     const results = subject.tests.map(t => ({
       testId: t.id,
       testName: t.title,
+      participantsCount: t.userTests.length,
       averageResult:
         t.userTests.length > 0
           ? Math.round(t.userTests.reduce((sum, ut) => sum + (ut.score ?? 0), 0) / t.userTests.length)
@@ -227,7 +250,7 @@ router.get("/:id/average", authenticate, authorize(["TEACHER"]), async (req: Aut
     res.json(results);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Teacher average natijalarni olishda xatolik" });
+    res.status(500).json({ message: "Statistikani hisoblashda xatolik" });
   }
 });
 
