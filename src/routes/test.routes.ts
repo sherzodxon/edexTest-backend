@@ -592,7 +592,7 @@ router.put(
 
       if (test.endTime.getTime() < now.getTime()) {
         return res.status(400).json({
-          message: "Test yakunlangan. Vaqtni o‘zgartirib bo‘lmaydi",
+          message: "Test yakunlangan. Vaqtni o'zgartirib bo'lmaydi",
         });
       }
 

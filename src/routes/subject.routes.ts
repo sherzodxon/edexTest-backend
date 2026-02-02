@@ -211,49 +211,58 @@ router.get("/:id/average", authenticate, authorize(["TEACHER"]), async (req: Aut
     const subjectId = Number(req.params.id);
     const teacherId = req.user!.id;
 
+    // 1. Fan va unga tegishli testlarni olish
     const subject = await prisma.subject.findUnique({
       where: { id: subjectId },
       include: {
-        teachers: true,
+        teachers: { where: { id: teacherId } },
         tests: {
-          where: { teacherId },
-          include: { 
-            userTests: {
-              // MUHIM: Faqat STUDENT rolidagi foydalanuvchilarning natijalarini olamiz
-              where: {
-                user: {
-                  role: "STUDENT"
-                }
-              }
-            } 
-          }
+          where: { teacherId: teacherId },
+          select: { id: true, title: true }
         }
       }
     });
 
     if (!subject) return res.status(404).json({ message: "Fan topilmadi" });
-
-    if (!subject.teachers.some(t => t.id === teacherId)) {
+    if (subject.teachers.length === 0) {
       return res.status(403).json({ message: "Bu fan sizga biriktirilmagan" });
     }
 
-    const results = subject.tests.map(t => ({
-      testId: t.id,
-      testName: t.title,
-      participantsCount: t.userTests.length,
-      averageResult:
-        t.userTests.length > 0
-          ? Math.round(t.userTests.reduce((sum, ut) => sum + (ut.score ?? 0), 0) / t.userTests.length)
-          : 0
-    }));
+    // 2. Har bir test uchun alohida aggregate so'rovini yuboramiz
+    // Promise.all so'rovlarni parallel bajarib beradi (tezlikni saqlaydi)
+    const results = await Promise.all(
+      subject.tests.map(async (test) => {
+        const stats = await prisma.userTest.aggregate({
+          where: {
+            testId: test.id,
+            user: {
+              role: "STUDENT"
+            },
+            finished: true
+          },
+          _avg: {
+            score: true
+          },
+          _count: {
+            id: true
+          }
+        });
+
+        return {
+          testId: test.id,
+          testName: test.title,
+          participantsCount: stats._count.id || 0,
+          averageResult: stats._avg.score ? Math.round(stats._avg.score) : 0
+        };
+      })
+    );
 
     res.json(results);
   } catch (err) {
-    console.error(err);
+    console.error("Average calculation error:", err);
     res.status(500).json({ message: "Statistikani hisoblashda xatolik" });
   }
 });
-
 
 router.get("/teacher/subjects/:id/tests", authenticate, authorize(["TEACHER"]), async (req: AuthRequest, res) => {
   try {
@@ -315,83 +324,69 @@ router.get("/admin/:id/tests", authenticate, async (req: AuthRequest, res) => {
 
     const subject = await prisma.subject.findUnique({
       where: { id: subjectId },
-      include: {
+      include: { 
         teachers: true,
-        tests: {
-          include: {
-            userTests: true,
-          },
-        },
-      },
+        tests: true 
+      }
     });
 
     if (!subject) return res.status(404).json({ message: "Fan topilmadi" });
 
-    let testsData: any[] = [];
-
-    if (user.role === "STUDENT") {
-      const studentTests = subject.tests.map((t) => {
-        const ut = t.userTests.find((ut) => ut.userId === user.id);
-        return {
-          id: t.id,
-          title: t.title,
-          startTime: t.startTime,
-          endTime: t.endTime,
-          createdAt: t.createdAt,
-          userTests: ut
-            ? [
-                {
-                  userId: ut.userId,
-                  score: ut.score,
-                  finished: ut.finished,
-                },
-              ]
-            : [],
-        };
-      });
-      testsData = studentTests;
-    } else if (user.role === "TEACHER") {
-      if (!subject.teachers.some((t) => t.id === user.id)) {
-        return res
-          .status(403)
-          .json({ message: "Bu fan sizga biriktirilmagan" });
-      }
-
-      testsData = subject.tests.map((t) => {
-        const avg =
-          t.userTests.length > 0
-            ? t.userTests.reduce((s, ut) => s + (ut.score ?? 0), 0) /
-              t.userTests.length
-            : 0;
-        return {
-          id: t.id,
-          title: t.title,
-          startTime: t.startTime,
-          endTime: t.endTime,
-          createdAt: t.createdAt,
-          average: avg,
-        };
-      });
-    } else if (user.role === "ADMIN") {
-      testsData = subject.tests.map((t) => ({
-        id: t.id,
-        title: t.title,
-        startTime: t.startTime,
-        endTime: t.endTime,
-        createdAt: t.createdAt,
-        userTests: t.userTests.map((ut) => ({
-          userId: ut.userId,
-          score: ut.score,
-          finished: ut.finished,
-        })),
-      }));
+    if (user.role === "TEACHER" && !subject.teachers.some((t) => t.id === user.id)) {
+      return res.status(403).json({ message: "Bu fan sizga biriktirilmagan" });
     }
+
+    const testsData = await Promise.all(
+      subject.tests.map(async (test) => {
+        const stats = await prisma.userTest.aggregate({
+          where: {
+            testId: test.id,
+            user: { role: "STUDENT" },
+            finished: true
+          },
+          _avg: { score: true },
+          _count: { id: true }
+        });
+
+        const count = stats._count.id;
+        const avg = stats._avg.score ? Math.round(stats._avg.score) : 0;
+
+        if (user.role === "STUDENT") {
+          const myTest = await prisma.userTest.findFirst({
+            where: { testId: test.id, userId: user.id }
+          });
+          return {
+            id: test.id,
+            title: test.title,
+            userTests: myTest ? [myTest] : []
+          };
+        }
+
+        let participants = undefined;
+        if (user.role === "ADMIN") {
+          participants = await prisma.userTest.findMany({
+            where: { testId: test.id, user: { role: "STUDENT" }, finished: true },
+            include: { user: { select: { name: true, role: true } } }
+          });
+        }
+
+        return {
+          id: test.id,
+          title: test.title,
+          startTime: test.startTime,
+          endTime: test.endTime,
+          createdAt: test.createdAt,
+          average: avg,
+          participantsCount: count,
+          userTests: participants
+        };
+      })
+    );
 
     res.json({ tests: testsData });
   } catch (err) {
-    console.error("Error fetching tests:", err);
-    res.status(500).json({ message: "Testlarni olishda xatolik" });
+    console.error("Aggregation Error:", err);
+    res.status(500).json({ message: "Statistikani olishda xatolik" });
   }
 });
-
 export default router;
