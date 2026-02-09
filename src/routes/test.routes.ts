@@ -97,8 +97,6 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), asy
 
     if (!test) return res.status(404).json({ message: "Test topilmadi" });
 
-    // --- 1. TEACHER VA ADMIN UCHUN TAHRIRLASH REJIMI ---
-    // Bu qism userTest-ga qaramaydi, shuning uchun savollar o'chib ketsa ham Refresh-da ko'rinadi.
     if (req.user?.role === "TEACHER" || req.user?.role === "ADMIN") {
       return res.json({
         id: test.id,
@@ -107,7 +105,7 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), asy
         subjectId: test.subject.id,
         startTime: test.startTime,
         endTime: test.endTime,
-        userFinished: false, // Teacher uchun har doim ochiq
+        userFinished: false, 
         questions: test.questions.map((q) => ({
           id: q.id,
           text: q.text,
@@ -115,20 +113,18 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), asy
           options: q.options.map((o) => ({
             id: o.id,
             text: o.text,
-            isCorrect: o.isCorrect // Tahrirlash uchun bu juda muhim
+            isCorrect: o.isCorrect 
           })),
         })),
       });
     }
 
-    // --- 2. STUDENT UCHUN TEKSHIRUVLAR ---
     const hasEnded = test.endTime ? now > test.endTime : false;
     const hasStarted = test.startTime ? now >= test.startTime : true;
 
     if (req.user?.role === "STUDENT" && !hasStarted)
       return res.status(400).json({ message: "Test hali boshlanmagan" });
 
-    // --- 3. STUDENT UCHUN SAVOLLAR TARTIBINI ANIQLASH ---
     let userTest = await prisma.userTest.findUnique({
       where: { userId_testId: { userId, testId } },
     });
@@ -199,7 +195,6 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), asy
       });
     }
 
-
     res.json({
       id: test.id,
       title: test.title,
@@ -212,7 +207,7 @@ router.get("/:id", authenticate, authorize(["STUDENT", "TEACHER", "ADMIN"]), asy
         id: q.id,
         text: q.text,
         img: q.img ? `https://api.edexschool.uz${q.img}` : null,
-        options: q.options.map((o) => ({ id: o.id, text: o.text })), // Studentga isCorrect yashiriladi
+        options: q.options.map((o) => ({ id: o.id, text: o.text })), 
       })),
     });
 
@@ -353,8 +348,6 @@ router.get("/:id/results", authenticate, authorize(["TEACHER"]), async (req, res
     res.status(500).json({ message: "Natijalarni olishda xatolik" });
   }
 });
-
-
 
 router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
@@ -685,7 +678,7 @@ router.put("/:id", authenticate, authorize(["TEACHER"]), upload.any(), async (re
           questions: {
             create: questions.map((q: any, i: number) => ({
               text: q.text,
-              img: q.imgKey && fileMap[q.imgKey] ? fileMap[q.imgKey] : q.img, // Yangi rasm bo'lsa yangisi, bo'lmasa eskisi
+              img: q.imgKey && fileMap[q.imgKey] ? fileMap[q.imgKey] : q.img,
               options: {
                 create: q.options.map((o: any) => ({
                   text: o.text,

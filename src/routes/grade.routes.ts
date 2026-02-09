@@ -186,7 +186,7 @@ router.get("/:gradeId/students", authenticate, async (req: any, res) => {
     res.json(students);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "O‘quvchilarni olishda xatolik" });
+    res.status(500).json({ message: "O'quvchilarni olishda xatolik" });
   }
 });
 

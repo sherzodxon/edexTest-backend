@@ -211,7 +211,6 @@ router.get("/:id/average", authenticate, authorize(["TEACHER"]), async (req: Aut
     const subjectId = Number(req.params.id);
     const teacherId = req.user!.id;
 
-    // 1. Fan va unga tegishli testlarni olish
     const subject = await prisma.subject.findUnique({
       where: { id: subjectId },
       include: {
@@ -228,8 +227,6 @@ router.get("/:id/average", authenticate, authorize(["TEACHER"]), async (req: Aut
       return res.status(403).json({ message: "Bu fan sizga biriktirilmagan" });
     }
 
-    // 2. Har bir test uchun alohida aggregate so'rovini yuboramiz
-    // Promise.all so'rovlarni parallel bajarib beradi (tezlikni saqlaydi)
     const results = await Promise.all(
       subject.tests.map(async (test) => {
         const stats = await prisma.userTest.aggregate({
