@@ -3,40 +3,51 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite" 
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  name      String
-  surname   String
-  username  String    @unique
-  password  String
-  role      Role      @default(STUDENT)
-
-  gradeId   Int?      
-  grade     Grade?    @relation("StudentGrade", fields: [gradeId], references: [id])
-
+  id              Int        @id @default(autoincrement())
+  name            String
+  surname         String
+  username        String     @unique
+  password        String
+  role            Role       @default(STUDENT)
+  groupId         Int?
+  group           Group?     @relation(fields: [groupId], references: [id])
+  totalPoints     Int        @default(0)
+  penaltyPoints   Int        @default(0)
+  gradeId         Int?      
+  grade           Grade?     @relation("StudentGrade", fields: [gradeId], references: [id])
   teacherGrades   Grade[]    @relation("TeacherGrades")
   teacherSubjects Subject[]  @relation("TeacherSubjects")
+  tests           Test[]     @relation("TeacherTests")
+  questionBank    Question[] @relation("TeacherQuestions") 
+  userTests       UserTest[]
+  answers         Answer[]
+  givenLogs       PointLog[] @relation("TeacherLogs") 
+  receivedLogs    PointLog[] @relation("StudentLogs")
+  createdAt       DateTime   @default(now())
+}
 
-  tests     Test[]    @relation("TeacherTests")
-  userTests UserTest[]
-  answers   Answer[]
-
-  createdAt DateTime  @default(now())
+model Group {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique 
+  logo        String?    
+  students    User[]     
+  totalPoints Int @default(0)
+  pointLogs   PointLog[] 
+  createdAt   DateTime   @default(now())
 }
 
 model Grade {
-  id        Int        @id @default(autoincrement())
-  name      String     @unique
-
-  students  User[]     @relation("StudentGrade")
-  teachers  User[]     @relation("TeacherGrades")
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  students  User[]    @relation("StudentGrade")
+  teachers  User[]    @relation("TeacherGrades")
   subjects  Subject[]
-
-  createdAt DateTime   @default(now())
+  createdAt DateTime  @default(now())
 }
 
 model Subject {
@@ -44,90 +55,94 @@ model Subject {
   name      String
   grade     Grade     @relation(fields: [gradeId], references: [id])
   gradeId   Int
-
   teachers  User[]    @relation("TeacherSubjects")
   tests     Test[]
-
   createdAt DateTime  @default(now())
-
   @@unique([name, gradeId])
 }
 
 model Test {
-  id        Int        @id @default(autoincrement())
-  title     String
-
-  teacher   User       @relation("TeacherTests", fields: [teacherId], references: [id])
-  teacherId Int
-
-  subject   Subject    @relation(fields: [subjectId], references: [id])
-  subjectId Int
-
-  questions Question[]
-  userTests UserTest[]
-   startTime   DateTime?   // test boshlanish vaqti
-   endTime     DateTime?
-  createdAt DateTime   @default(now())
+  id          Int        @id @default(autoincrement())
+  title       String
+  teacher     User       @relation("TeacherTests", fields: [teacherId], references: [id])
+  teacherId   Int
+  subject     Subject    @relation(fields: [subjectId], references: [id])
+  subjectId   Int
+  questions   Question[] @relation("TestQuestions")
   
+  userTests   UserTest[]
+  answers     Answer[]
+  startTime   DateTime?  
+  endTime     DateTime?
+  createdAt   DateTime   @default(now())
 }
 
 model Question {
-  id        Int       @id @default(autoincrement())
-  text      String
-  img       String?
+  id          Int        @id @default(autoincrement())
+  text        String
+  img         String?
+  isBank      Boolean    @default(false)
+  teacher     User?      @relation("TeacherQuestions", fields: [teacherId], references: [id])
+  teacherId   Int?
 
-  test      Test      @relation(fields: [testId], references: [id])
-  testId    Int
-
-  options   Option[]
-  answers   Answer[]
-
-  createdAt DateTime  @default(now())
-}
-
-model Option {
-  id         Int       @id @default(autoincrement())
-  text       String
-  isCorrect  Boolean   @default(false)
-
-  question   Question  @relation(fields: [questionId], references: [id])
-  questionId Int
-
-  answers    Answer[]
-
-  createdAt  DateTime  @default(now())
+  testId      Int?
+  test        Test?      @relation("TestQuestions", fields: [testId], references: [id], onDelete: Cascade)
+  
+  options     Option[]
+  answers     Answer[]
+  createdAt   DateTime   @default(now())
 }
 
 model Answer {
-  id         Int       @id @default(autoincrement())
-  student    User      @relation(fields: [studentId], references: [id])
+  id         Int      @id @default(autoincrement())
+  student    User     @relation(fields: [studentId], references: [id])
   studentId  Int
-
-  question   Question  @relation(fields: [questionId], references: [id])
+  test       Test?    @relation(fields: [testId], references: [id])
+  testId     Int?
+  
+  question   Question @relation(fields: [questionId], references: [id])
   questionId Int
+  optionId   Int      
+  createdAt  DateTime @default(now())
 
-  option     Option    @relation(fields: [optionId], references: [id])
-  optionId   Int
+  @@unique([studentId, testId, questionId])
+}
 
-  createdAt  DateTime  @default(now())
-
-  @@unique([studentId, questionId], name: "studentId_questionId")
+model Option {
+  id          Int      @id @default(autoincrement())
+  text        String
+  isCorrect   Boolean  @default(false)
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId  Int
+  createdAt  DateTime @default(now())
 }
 
 model UserTest {
-  id        Int      @id @default(autoincrement())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    Int
-
-  test      Test     @relation(fields: [testId], references: [id])
-  testId    Int
-
-  finished  Boolean  @default(false)
-  score     Int      @default(0)
+  id            Int      @id @default(autoincrement())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        Int
+  test          Test     @relation(fields: [testId], references: [id])
+  testId        Int
+  finished      Boolean  @default(false)
+  score         Int      @default(0)
   questionOrder String?
-  createdAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  @@unique([userId, testId])
+}
 
-  @@unique([userId, testId], name: "userId_testId")
+model PointLog {
+  id            Int      @id @default(autoincrement())
+  points        Int      
+  band          Int      
+  article       Int      
+  description   String   
+  studentId     Int?
+  student       User?    @relation("StudentLogs", fields: [studentId], references: [id])
+  groupId       Int
+  group         Group    @relation(fields: [groupId], references: [id])
+  teacherId     Int
+  teacher       User     @relation("TeacherLogs", fields: [teacherId], references: [id])
+  createdAt     DateTime @default(now())
 }
 
 enum Role {

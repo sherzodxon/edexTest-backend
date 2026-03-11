@@ -16,6 +16,7 @@ router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, re
       gradeId,
       teacherGradeIds,
       teacherSubjectIds,
+      groupId
     } = req.body;
 
     if (!name || !surname || !username || !password || !role) {
@@ -37,9 +38,10 @@ router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, re
       role,
     };
 
-    if (role === "STUDENT" && gradeId) {
-      data.grade = { connect: { id: Number(gradeId) } };
-    }
+    if (role === "STUDENT") {
+    if (gradeId) data.grade = { connect: { id: Number(gradeId) } };
+    if (groupId) data.group = { connect: { id: Number(groupId) } }; 
+  }
 
     if (role === "TEACHER") {
       if (Array.isArray(teacherGradeIds) && teacherGradeIds.length > 0) {
@@ -62,17 +64,45 @@ router.post("/", authenticate, authorize(["ADMIN"]), async (req: AuthRequest, re
   }
 });
 
-router.get("/", authenticate, authorize(["ADMIN"]), async (req, res) => {
+router.get("/", authenticate, authorize(["ADMIN", "TEACHER"]), async (req: AuthRequest, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Avtorizatsiya xatosi" });
+    }
+
+    const { role } = req.user;
+
+    if (role === "TEACHER") {
+      const students = await prisma.user.findMany({
+        where: {
+          role: "STUDENT" 
+        },
+        include: { 
+          grade: true, 
+          group: true 
+        },
+        orderBy: {
+          name: 'asc' 
+        }
+      });
+      return res.json(students);
+    }
+
     const users = await prisma.user.findMany({
-      include: { grade: true, teacherGrades: true, teacherSubjects: true },
+      include: { 
+        grade: true, 
+        teacherGrades: true, 
+        teacherSubjects: true 
+      },
     });
-    res.json(users);
+    
+    return res.json(users);
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server xatosi" });
   }
-});
+});;
 
 router.get("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
