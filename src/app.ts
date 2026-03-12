@@ -23,26 +23,27 @@ const app = express();
 //     allowedHeaders: ["Content-Type", "Authorization"],
 //   })
 // );
-app.use(
+ app.use(
   cors({
     origin: (origin, callback) => {
       const allowedOrigins = [
         "https://test.edexschool.uz", 
-        "http://localhost:3000",      
+        // "http://localhost:3000"
       ];
-
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("CORS policy: Kirishga ruxsat berilmagan"));
+        console.log("CORS blokladi:", origin);
+        callback(new Error("CORS policy: Ruxsat berilmagan"));
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
     credentials: true,
   })
 );
 
+app.options(/.*/, cors());
 
 app.use(bodyParser.json());
 
