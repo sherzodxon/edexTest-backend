@@ -16,36 +16,23 @@ import qbankRoutes from "./routes/q-bank.routes"
 
 const app = express();
 
-// app.use(
-//   cors({
-//     origin: "*",
-//     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-//     allowedHeaders: ["Content-Type", "Authorization"],
-//   })
-// );
- app.use(
+
+app.use(
   cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        "https://test.edexschool.uz", 
-        // "http://localhost:3000"
-      ];
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.log("CORS blokladi:", origin);
-        callback(new Error("CORS policy: Ruxsat berilmagan"));
-      }
-    },
+    origin: ["https://test.edexschool.uz","https://gradoria.vercel.app/"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
-
 app.options(/.*/, cors());
 
 app.use(bodyParser.json());
+
+app.use((req, res, next) => {
+  console.log(`[${new Date().toLocaleTimeString()}] ${req.method} -> ${req.url}`);
+  next();
+});
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
