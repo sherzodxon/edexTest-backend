@@ -17,14 +17,27 @@ import qbankRoutes from "./routes/q-bank.routes"
 const app = express();
 
 
-app.use(
-  cors({
-    origin: ["https://test.edexschool.uz","https://gradoria.vercel.app"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
+const allowedOrigins = [
+  "https://test.edexschool.uz",
+  "https://gradoria.vercel.app"
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("CORS blocked"));
+  },
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type","Authorization"],
+  credentials: true
+}));
+
+// Preflight
 app.options(/.*/, cors());
 
 app.use(bodyParser.json());
