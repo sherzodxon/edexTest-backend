@@ -19,7 +19,8 @@ const app = express();
 
 const allowedOrigins = [
   "https://test.edexschool.uz",
-  "https://gradoria.vercel.app"
+  "https://gradoria.vercel.app",
+  "http://localhost:3000"
 ];
 
 app.use(cors({

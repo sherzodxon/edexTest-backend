@@ -180,4 +180,68 @@ router.get("/stats", async (req, res) => {
     res.status(500).json({ message: "Dashboard xatoligi" });
   }
 });
+const getMondayOfCurrentWeek = () => {
+  const today = new Date();
+  const day = today.getDay(); // 0 (yakshanba) - 6 (shanba)
+  const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Dushanbaga qaytish
+  const monday = new Date(today.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+};
+router.get("/weekly-stats", async (req, res) => {
+  try {
+    const monday = getMondayOfCurrentWeek();
+    const groups = await prisma.group.findMany({
+      include: {
+        students: {
+          include: {
+            receivedLogs: {
+              where: { createdAt: { gte: monday } },
+              select: { points: true }
+            }
+          }
+        },
+        pointLogs: {
+          where: { createdAt: { gte: monday } },
+          select: { points: true }
+        }
+      }
+    });
+
+    const groupStats = groups.map(g => {
+      const weeklyTotal = g.pointLogs.reduce((sum: number, log: { points: number }) => sum + log.points, 0);
+
+      const studentsWithWeeklyPoints = g.students.map((s) => ({
+        id: s.id,
+        name: s.name,
+        surname: s.surname,
+        totalPoints: s.receivedLogs.reduce((sum: number, log: { points: number }) => sum + log.points, 0)
+      })).sort((a, b) => b.totalPoints - a.totalPoints);
+
+      return {
+        id: g.id,
+        name: g.name,
+        logo: g.logo,
+        totalPoints: weeklyTotal,
+        students: studentsWithWeeklyPoints
+      };
+    }).sort((a, b) => b.totalPoints - a.totalPoints);
+
+    const recentLogs = await prisma.pointLog.findMany({
+      where: { createdAt: { gte: monday } },
+      take: 300,
+      include: {
+        student: { select: { name: true, surname: true } },
+        teacher: { select: { name: true, surname: true } },
+        group: { select: { id: true, name: true } }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    res.json({ groupStats, recentLogs });
+  } catch (err) {
+    console.error("Dashboard Stats Error:", err);
+    res.status(500).json({ message: "Server xatoligi" });
+  }
+});
 export default router;
