@@ -20,6 +20,7 @@ const app = express();
 const allowedOrigins = [
   "https://test.edexschool.uz",
   "https://gradoria.vercel.app",
+  "https://edex-koordinator.vercel.app",
   "http://localhost:3000"
 ];
 
