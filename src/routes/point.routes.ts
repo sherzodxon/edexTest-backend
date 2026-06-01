@@ -13,9 +13,31 @@ router.post("/teacher/give", authenticate, authorize(["TEACHER"]), async (req: A
     }
 
     const student = await prisma.user.findUnique({ where: { id: Number(studentId) } });
-    if (!student || !student.groupId) return res.status(400).json({ message: "O'quvchi topilmadi yoki guruhga biriktirilmagan" });
+    if (!student || !student.groupId) 
+      return res.status(400).json({ message: "O'quvchi topilmadi yoki guruhga biriktirilmagan" });
 
-    const pointsValue = Number(points); // MUHIM: Son ekanligini ta'minlash
+    // --- KUNLIK LIMIT TEKSHIRUVI ---
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const todayCount = await prisma.pointLog.count({
+      where: {
+        teacherId: req.user!.id,
+        studentId: Number(studentId),
+        createdAt: { gte: todayStart, lte: todayEnd },
+      },
+    });
+
+    if (todayCount >= 3) {
+      return res.status(429).json({ 
+        message: `Siz bugun ${student.name} ${student.surname}ga allaqachon 3 marta ball kiritgansiz. Kunlik limit: 3 ta.` 
+      });
+    }
+    // --- LIMIT TUGADI ---
+
+    const pointsValue = Number(points);
 
     const result = await prisma.$transaction([
       prisma.pointLog.create({
@@ -31,11 +53,15 @@ router.post("/teacher/give", authenticate, authorize(["TEACHER"]), async (req: A
       }),
       prisma.user.update({
         where: { id: student.id },
-        data: { totalPoints: { increment: pointsValue } } // 10 + (-20) = -10 chiqadi
+        data: { totalPoints: { increment: pointsValue } }
       })
     ]);
 
-    res.json({ message: "Muvaffaqiyatli bajarildi", data: result[0] });
+    res.json({ 
+      message: "Muvaffaqiyatli bajarildi", 
+      data: result[0],
+      remainingToday: 2 - todayCount // nechta qoldi
+    });
   } catch (err) {
     res.status(500).json({ message: "Server xatosi" });
   }
@@ -241,6 +267,89 @@ router.get("/weekly-stats", async (req, res) => {
     res.json({ groupStats, recentLogs });
   } catch (err) {
     console.error("Dashboard Stats Error:", err);
+    res.status(500).json({ message: "Server xatoligi" });
+  }
+});
+// GET /api/points/range-stats?from=2026-05-01&to=2026-06-01&groupId=1
+router.get("/range-stats", async (req, res) => {
+  try {
+    const { from, to, groupId } = req.query;
+
+    if (!from || !to) {
+      return res.status(400).json({ message: "'from' va 'to' parametrlari majburiy (YYYY-MM-DD)" });
+    }
+
+    const fromDate = new Date(from as string);
+    fromDate.setHours(0, 0, 0, 0);
+    const toDate = new Date(to as string);
+    toDate.setHours(23, 59, 59, 999);
+
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+      return res.status(400).json({ message: "Noto'g'ri sana formati. YYYY-MM-DD formatida yuboring" });
+    }
+
+    const whereGroup = groupId ? { id: Number(groupId) } : {};
+
+    const groups = await prisma.group.findMany({
+      where: whereGroup,
+      include: {
+        students: {
+          include: {
+            receivedLogs: {
+              where: { createdAt: { gte: fromDate, lte: toDate } },
+              select: { points: true }
+            }
+          }
+        },
+        pointLogs: {
+          where: { createdAt: { gte: fromDate, lte: toDate } },
+          select: { points: true }
+        }
+      }
+    });
+
+    const groupStats = groups.map(g => {
+      const totalPoints = g.pointLogs.reduce((sum, log) => sum + log.points, 0);
+
+      const students = g.students
+        .map(s => ({
+          id: s.id,
+          name: s.name,
+          surname: s.surname,
+          points: s.receivedLogs.reduce((sum, log) => sum + log.points, 0)
+        }))
+        .sort((a, b) => b.points - a.points);
+
+      return {
+        id: g.id,
+        name: g.name,
+        logo: g.logo,
+        totalPoints,
+        students
+      };
+    }).sort((a, b) => b.totalPoints - a.totalPoints);
+
+    const recentLogs = await prisma.pointLog.findMany({
+      where: {
+        createdAt: { gte: fromDate, lte: toDate },
+        ...(groupId ? { groupId: Number(groupId) } : {})
+      },
+      take: 300,
+      include: {
+        student: { select: { name: true, surname: true } },
+        teacher: { select: { name: true, surname: true } },
+        group: { select: { id: true, name: true } }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    res.json({ 
+      groupStats, 
+      recentLogs,
+      period: { from: fromDate, to: toDate }
+    });
+  } catch (err) {
+    console.error("Range stats error:", err);
     res.status(500).json({ message: "Server xatoligi" });
   }
 });

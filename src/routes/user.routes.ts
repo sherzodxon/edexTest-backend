@@ -164,12 +164,47 @@ router.put("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
 
 router.delete("/:id", authenticate, authorize(["ADMIN"]), async (req, res) => {
   try {
-    const { id } = req.params;
-    await prisma.user.delete({ where: { id: Number(id) } });
-    res.json({ message: "Foydalanuvchi o'chirildi" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server xatosi" });
+    const userId = Number(req.params.id);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ message: "Foydalanuvchi topilmadi" });
+
+    await prisma.$transaction(async (tx) => {
+
+      if (user.role === "STUDENT") {
+        // O'quvchining javoblari
+        await tx.answer.deleteMany({ where: { studentId: userId } });
+        // O'quvchining test natijalari
+        await tx.userTest.deleteMany({ where: { userId } });
+        // O'quvchiga berilgan ball loglari
+        await tx.pointLog.deleteMany({ where: { studentId: userId } });
+      }
+
+      if (user.role === "TEACHER") {
+        // Testlar saqlanadi, faqat teacherId → null
+        await tx.test.updateMany({
+          where: { teacherId: userId },
+          data: { teacherId: null }
+        });
+        // Question bank saqlanadi, teacherId → null
+        await tx.question.updateMany({
+          where: { teacherId: userId },
+          data: { teacherId: null }
+        });
+        // Ball tarixi saqlanadi, teacherId → null
+        await tx.pointLog.updateMany({
+          where: { teacherId: userId },
+          data: { teacherId: null }
+        });
+      }
+
+      await tx.user.delete({ where: { id: userId } });
+    });
+
+    res.json({ message: "Foydalanuvchi muvaffaqiyatli o'chirildi" });
+  } catch (err: any) {
+    console.error("User delete error:", err);
+    res.status(500).json({ message: "O'chirishda xatolik: " + (err.message || err) });
   }
 });
 router.get("/user-analysis/:userId", authenticate, authorize(["ADMIN", "TEACHER"]), async (req: AuthRequest, res) => {

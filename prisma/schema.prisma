@@ -64,18 +64,19 @@ model Subject {
 model Test {
   id          Int        @id @default(autoincrement())
   title       String
-  teacher     User       @relation("TeacherTests", fields: [teacherId], references: [id])
-  teacherId   Int
+  teacher     User?      @relation("TeacherTests", fields: [teacherId], references: [id])
+  teacherId   Int?       // Int → Int?
   subject     Subject    @relation(fields: [subjectId], references: [id])
   subjectId   Int
   questions   Question[] @relation("TestQuestions")
-  
   userTests   UserTest[]
   answers     Answer[]
   startTime   DateTime?  
   endTime     DateTime?
   createdAt   DateTime   @default(now())
 }
+
+
 
 model Question {
   id          Int        @id @default(autoincrement())
@@ -129,7 +130,6 @@ model UserTest {
   createdAt     DateTime @default(now())
   @@unique([userId, testId])
 }
-
 model PointLog {
   id            Int      @id @default(autoincrement())
   points        Int      
@@ -140,8 +140,8 @@ model PointLog {
   student       User?    @relation("StudentLogs", fields: [studentId], references: [id])
   groupId       Int
   group         Group    @relation(fields: [groupId], references: [id])
-  teacherId     Int
-  teacher       User     @relation("TeacherLogs", fields: [teacherId], references: [id])
+  teacherId     Int?     // Int → Int?
+  teacher       User?    @relation("TeacherLogs", fields: [teacherId], references: [id])
   createdAt     DateTime @default(now())
 }
 
